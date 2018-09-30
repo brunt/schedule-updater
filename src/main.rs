@@ -6,7 +6,6 @@ use std::thread;
 use regex::Regex;
 
 fn main() {
-    //TODO: finish formatting of response to a useful csv
     let west_weekday_handle = thread::spawn(|| {
         generate_schedule(
             "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=west&day_type=weekdays",
@@ -58,31 +57,26 @@ fn schedule_request(url: &str) -> Result<String, reqwest::Error> {
     Ok(table)
 }
 
-//edit string or return clone? depends what the string helpers do
 fn filter_content(junk: String) -> String {
     let junk = junk.replace("{\"type\":\"success\",\"html\":", "") //remove start and end lines
         .replace("}", "")
-        .replace(r#"<\/thead>"#, "\n")
+        .replace(r#"<\/thead>"#, "\n") //separate into rows and columns
         .replace(r#"<\/tr>"#, "\n")
         .replace(r#"<\/td>"#, ",");
+    //remove the remaining html tags
     let re = Regex::new(r#"<[\w|\s|\d|=|"|\-|\\|/]*>"#).unwrap();
     let s = re.replace_all(&junk, "");
     return s
-        .replace("\\n\\t\\t\\t\\t", "")
-        .replace("\\n\\t\\t\\t", "")
-        .replace("\\n\\t\\t", ",")
-        .replace(" pm", "P") //convert am/pm to A/P
+        .replace(" pm", "P")
         .replace(" am", "A")
         .replace("-", "")
         .replace("\\t", "")
         .replace("\\n", "")
-        .replace(",,\n,", ",\n")
         .replace("\"", "")
-        .replacen(",", "", 1)
+        .replace(",\n", "\n")
         .replacen("\n", "", 1);
 }
 
-//write to filesystem
 fn save_to_csv(contents: String, name: &str) -> std::io::Result<()> {
     let mut f = fs::File::create(format!("./out/{}", name))?;
     f.write_all(contents.as_bytes())?;
