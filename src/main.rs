@@ -6,6 +6,11 @@ use std::thread;
 use regex::Regex;
 
 fn main() {
+    //create output directory if it's not there already
+    if !std::path::Path::new(&"./out").exists() {
+        std::fs::create_dir("./out").expect("error creating output directory");
+    }
+
     let west_weekday_handle = thread::spawn(|| {
         generate_schedule(
             "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=west&day_type=weekdays",
