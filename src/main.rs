@@ -62,7 +62,8 @@ fn filter_content(junk: String) -> String {
         .replace("}", "")
         .replace(r#"<\/thead>"#, "\n") //separate into rows and columns
         .replace(r#"<\/tr>"#, "\n")
-        .replace(r#"<\/td>"#, ",");
+        .replace(r#"<\/td>"#, ",")
+        .replace(r#"<\/th>"#, ",");
     //remove the remaining html tags
     let re = Regex::new(r#"<[\w|\s|\d|=|"|\-|\\|/]*>"#).unwrap();
     let s = re.replace_all(&junk, "");
