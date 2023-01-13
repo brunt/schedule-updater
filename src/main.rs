@@ -1,14 +1,14 @@
-extern crate reqwest;
 extern crate regex;
+extern crate reqwest;
+use regex::Regex;
 use std::fs;
 use std::io::Write;
 use std::thread;
-use regex::Regex;
 
 fn main() {
     //create output directory if it's not there already
     if !std::path::Path::new(&"./out").exists() {
-        std::fs::create_dir("./out").expect("error creating output directory");
+        fs::create_dir("./out").expect("error creating output directory");
     }
 
     let west_weekday_handle = thread::spawn(|| {
@@ -58,12 +58,13 @@ fn main() {
 
 //call the metro endpoints used to build the html table, get back a very long string of the html
 fn schedule_request(url: &str) -> Result<String, reqwest::Error> {
-    let table = reqwest::get(url)?.text()?;
+    let table = reqwest::blocking::get(url)?;
     Ok(table)
 }
 
 fn filter_content(junk: String) -> String {
-    let junk = junk.replace("{\"type\":\"success\",\"html\":", "") //remove start and end lines
+    let junk = junk
+        .replace("{\"type\":\"success\",\"html\":", "") //remove start and end lines
         .replace("}", "")
         .replace(r#"<\/thead>"#, "\n") //separate into rows and columns
         .replace(r#"<\/tr>"#, "\n")
@@ -95,7 +96,8 @@ fn generate_schedule(url: &str, filename: &str) {
             let csv = filter_content(s);
             save_to_csv(csv, filename).unwrap();
         }
-        Err(_) => {
+        Err(e) => {
+            dbg!(e);
             writeln!(std::io::stderr(), "error retrieving schedule from url");
         }
     }
