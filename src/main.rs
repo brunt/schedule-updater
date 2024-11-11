@@ -12,54 +12,29 @@ fn main() {
     }
 
     let west_weekday_handle = thread::spawn(|| {
-        generate_schedule(
-            "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=west&day_type=weekdays",
-            "westbound-weekday-schedule.csv");
+        generate_schedule("west", "weekdays");
     });
     let east_weekday_handle = thread::spawn(|| {
-        generate_schedule(
-            "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=east&day_type=weekdays",
-            "eastbound-weekday-schedule.csv"
-        );
+        generate_schedule("east", "weekdays");
     });
 
-    let west_saturday_handle = thread::spawn(|| {
-        generate_schedule(
-            "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=west&day_type=saturday",
-            "westbound-saturday-schedule.csv"
-        );
+    let west_weekends_handle = thread::spawn(|| {
+        generate_schedule("west", "weekends");
     });
-    let east_saturday_handle = thread::spawn(|| {
-        generate_schedule(
-            "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=east&day_type=saturday",
-            "eastbound-saturday-schedule.csv"
-        );
-    });
-    let west_sunday_handle = thread::spawn(|| {
-        generate_schedule(
-            "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=west&day_type=sunday",
-            "westbound-sunday-schedule.csv"
-        );
-    });
-    let east_sunday_handle = thread::spawn(|| {
-        generate_schedule(
-            "https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction=east&day_type=sunday",
-            "eastbound-sunday-schedule.csv"
-        );
+    let east_weekends_handle = thread::spawn(|| {
+        generate_schedule("east", "weekends");
     });
 
     west_weekday_handle.join().unwrap();
     east_weekday_handle.join().unwrap();
-    west_saturday_handle.join().unwrap();
-    east_saturday_handle.join().unwrap();
-    west_sunday_handle.join().unwrap();
-    east_sunday_handle.join().unwrap();
+    west_weekends_handle.join().unwrap();
+    east_weekends_handle.join().unwrap();
+
 }
 
 //call the metro endpoints used to build the html table, get back a very long string of the html
-fn schedule_request(url: &str) -> Result<String, reqwest::Error> {
-    let table = reqwest::blocking::get(url)?;
-    Ok(table)
+fn schedule_request(url: String) -> Result<String, reqwest::Error> {
+    reqwest::blocking::get(url)?.text()
 }
 
 fn filter_content(junk: String) -> String {
@@ -73,7 +48,7 @@ fn filter_content(junk: String) -> String {
     //remove the remaining html tags
     let re = Regex::new(r#"<[\w|\s|\d|=|"|\-|\\|/]*>"#).unwrap();
     let s = re.replace_all(&junk, "");
-    return s
+    s
         .replace(" pm", "P")
         .replace(" am", "A")
         .replace("-", "")
@@ -81,7 +56,7 @@ fn filter_content(junk: String) -> String {
         .replace("\\n", "")
         .replace("\"", "")
         .replace(",\n", "\n")
-        .replacen("\n", "", 1);
+        .replacen("\n", "", 1)
 }
 
 fn save_to_csv(contents: String, name: &str) -> std::io::Result<()> {
@@ -90,15 +65,12 @@ fn save_to_csv(contents: String, name: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-fn generate_schedule(url: &str, filename: &str) {
-    match schedule_request(url) {
-        Ok(s) => {
-            let csv = filter_content(s);
-            save_to_csv(csv, filename).unwrap();
-        }
-        Err(e) => {
-            dbg!(e);
-            writeln!(std::io::stderr(), "error retrieving schedule from url");
-        }
+// fn generate_schedule(url: &str, filename: &str) {
+fn generate_schedule(direction: &str, day_type: &str) {
+    let url = format!("https://www.metrostlouis.org/wp-admin/admin-ajax.php?action=metro_build_metrolink_html_table&direction={direction}&day_type={day_type}");
+
+    if let Ok(schedule) = schedule_request(url) {
+        let csv = filter_content(schedule);
+        save_to_csv(csv, &format!("{direction}bound-{day_type}-schedule.csv")).expect("error saving csv");
     }
 }
